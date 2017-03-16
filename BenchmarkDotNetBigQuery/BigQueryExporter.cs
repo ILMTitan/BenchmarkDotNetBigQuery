@@ -17,7 +17,6 @@ namespace BenchmarkDotNetBigQuery
     public class BigQueryExporter: IExporter
     {
         private string CommitId { get; }
-        private string HostName { get; }
         private BigQueryTable SummaryTable { get; }
         private BigQueryTable ReportTable { get; }
 
@@ -66,16 +65,14 @@ namespace BenchmarkDotNetBigQuery
          * If the dataset and tables already exist, it will validate that the tables contain the necessary fields.
          */
         public BigQueryExporter(
+            string commitId,
             string googleProjectId,
             string datasetId,
-            string commitId,
-            string hostName,
-            GoogleCredential googleCredential = null,
             string summaryTableId = "BenchmarkSummary",
-            string reportTableId = "BenchmarkReport")
+            string reportTableId = "BenchmarkReport",
+            GoogleCredential googleCredential = null)
         {
             CommitId = commitId;
-            HostName = hostName;
             Task<BigQueryClient> bqClientTask = BigQueryClient.CreateAsync(googleProjectId, googleCredential);
             Tuple<BigQueryTable, BigQueryTable> tables =
                 GetValidTablesFromDataset(datasetId, summaryTableId, reportTableId, bqClientTask).Result;
@@ -112,7 +109,7 @@ namespace BenchmarkDotNetBigQuery
                 {"Id", summaryId},
                 {"Commit", CommitId},
                 {"Timestamp", DateTimeOffset.UtcNow},
-                {"HostName", HostName},
+                {"HostName", Environment.MachineName},
                 {"OsVersion", summary.HostEnvironmentInfo.OsVersion.Value},
                 {"ProcessorName", summary.HostEnvironmentInfo.ProcessorName.Value},
                 {"ProcessorCount", summary.HostEnvironmentInfo.ProcessorCount},

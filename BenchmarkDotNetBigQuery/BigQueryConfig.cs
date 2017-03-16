@@ -23,20 +23,18 @@ namespace BenchmarkDotNetBigQuery
 
         public BigQueryConfig(
             string commitId,
-            string hostName,
             string googleProjectId,
             string datasetId,
-            GoogleCredential googleCredential = null,
             string reportTableId = null,
-            string summaryTableId = null)
+            string summaryTableId = null,
+            GoogleCredential googleCredential = null)
         {
             _bigQueryExporter = new Lazy<BigQueryExporter>(() =>
             {
                 return new BigQueryExporter(
-                    googleProjectId, datasetId, commitId, hostName,
-                    googleCredential, summaryTableId, reportTableId);
+                    commitId, googleProjectId, datasetId, summaryTableId,
+                    reportTableId, googleCredential);
             });
-
         }
 
         public IEnumerable<IExporter> GetExporters()
