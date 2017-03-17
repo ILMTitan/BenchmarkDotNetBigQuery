@@ -5,6 +5,7 @@ using BenchmarkDotNet.Exporters;
 using BenchmarkDotNet.Loggers;
 using BenchmarkDotNet.Reports;
 using Google.Cloud.Datastore.V1;
+using MoreLinq;
 
 namespace BenchmarkDotNetBigQuery
 {
@@ -66,8 +67,11 @@ namespace BenchmarkDotNetBigQuery
             Entity summaryEntity = BuildSummaryEntity(summary, summaryKeyFactory);
             Key summaryKey = DatastoreDb.Insert(summaryEntity);
             KeyFactory reportKeyFactory = new KeyFactory(summaryKey, ReportEntityKind);
-            IEnumerable<Entity> reportEntities = summary.Reports.Select(BuildReportEntityCurry(reportKeyFactory));
-            DatastoreDb.Insert(reportEntities);
+            var reportBatches = summary.Reports.Select(BuildReportEntityCurry(reportKeyFactory)).Batch(500);
+            foreach (IEnumerable<Entity> reportBatch in reportBatches)
+            {
+                DatastoreDb.Insert(reportBatch);
+            }
             yield return $"Datastore summary entity key: {summaryKey}";
         }
 
