@@ -1,25 +1,20 @@
 {
-  "version": "1.0.0-*",
-
+  "title": "BenchmarkDotNetBigQuery",
+  "description": "BenchmarkDotNet exporter to Google BigQuery",
+  "version": "1.0.0-alpha",
   "dependencies": {
     "BenchmarkDotNet": "0.10.3",
     "Google.Cloud.BigQuery.V2": "1.0.0-beta09",
     "NETStandard.Library": "1.6.1"
   },
-
   "frameworks": {
     "net45": {
-      "frameworkAssemblies": {
-      },
-      "dependencies": {
-      }
     },
     "netcoreapp1.1": {
-      "buildOptions": {
-        "define": [ "PCL" ]
-      },
-      "dependencies": {
-      }
     }
+  },
+  "buildOptions": {
+    "define": [ "DEBUG" ],
+    "xmlDoc": true
   }
 }

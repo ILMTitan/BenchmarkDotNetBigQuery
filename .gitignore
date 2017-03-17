@@ -7,3 +7,4 @@
 /BenchmarkDotNetBigQuery/obj
 *.user
 /BenchmarkDotNetBigQuery/project.lock.json
+*.snk

@@ -21,12 +21,15 @@ namespace BenchmarkDotNetBigQuery
     {
         private readonly Lazy<BigQueryExporter> _bigQueryExporter;
 
+        /**
+         * Creates a new BigQueryConfig.
+         */
         public BigQueryConfig(
             string commitId,
             string googleProjectId,
             string datasetId,
-            string reportTableId = null,
-            string summaryTableId = null,
+            string summaryTableId = "BenchmarkSummary",
+            string reportTableId = "BenchmarkReport",
             GoogleCredential googleCredential = null)
         {
             _bigQueryExporter = new Lazy<BigQueryExporter>(() =>
