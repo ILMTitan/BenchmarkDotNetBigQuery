@@ -11,9 +11,9 @@ using Google.Cloud.BigQuery.V2;
 
 namespace BenchmarkDotNetBigQuery
 {
-    /**
-     * A BenchmarkDotNet Exporter that saves benchmark data to Google BigQuery Tables.
-     */
+    /// <summary>
+    /// A BenchmarkDotNet Exporter that saves benchmark data to Google BigQuery Tables.
+    /// </summary>
     public class BigQueryExporter: IExporter
     {
         private string CommitId { get; }
@@ -51,6 +51,7 @@ namespace BenchmarkDotNetBigQuery
             {"MethodSignature", BigQueryDbType.String},
             {"Min", BigQueryDbType.Float64},
             {"Max", BigQueryDbType.Float64},
+            {"Mean", BigQueryDbType.Float64},
             {"Median", BigQueryDbType.Float64},
             {"StandardDeviation", BigQueryDbType.Float64},
             {"StandardError", BigQueryDbType.Float64},
@@ -61,10 +62,18 @@ namespace BenchmarkDotNetBigQuery
             {"Percentile100", BigQueryDbType.Float64}
         }.Build();
 
-        /**
-         * During construction, the BigQueryExporter will create the dataset and tables if needed.
-         * If the dataset and tables already exist, it will validate that the tables contain the necessary fields.
-         */
+        /// <summary>
+        /// During construction, the BigQueryExporter will create the dataset and tables if needed.
+        /// If the dataset and tables already exist, it will validate that the tables contain the necessary fields.
+        /// </summary>
+        /// <param name="commitId">Id of the commit e.g. git hash.</param>
+        /// <param name="googleProjectId">The id of the google project to upload to.</param>
+        /// <param name="datasetId">
+        ///   The id of the Google BigQuery dataset that contains the target tables.
+        /// </param>
+        /// <param name="summaryTableId">The id of table to put summary information in.</param>
+        /// <param name="reportTableId">The id of table to put report information in.</param>
+        /// <param name="googleCredential">Defaults to application default credentials if unspecified.</param>
         public BigQueryExporter(
             string commitId,
             string googleProjectId,
@@ -81,17 +90,20 @@ namespace BenchmarkDotNetBigQuery
             ReportTable = tables.Item2;
         }
 
-        /**
-         * BigQueryExporter does not write to a logger. It sends an error message to the logger.
-         */
+        /// <summary>
+        /// BigQueryExporter does not write to a logger. It sends an error message to the logger.
+        /// </summary>
         public void ExportToLog(Summary summary, ILogger logger)
         {
             logger.WriteLine(LogKind.Error, $"{nameof(BigQueryExporter)} does not output to a logger.");
         }
 
-        /**
-         * This is where BigQueryExporter writes benchmark data to the BigQuery tables.
-         */
+        /// <summary>
+        /// This is where BigQueryExporter writes benchmark data to the BigQuery tables.
+        /// </summary>
+        /// <param name="summary">The summary to upload to Google BigQuery</param>
+        /// <param name="logger">Unused</param>
+        /// <returns>A string containing the summary guid and the names of the tables they are stoed in.</returns>
         public IEnumerable<string> ExportToFiles(Summary summary, ILogger logger)
         {
             string summaryId = Guid.NewGuid().ToString();
@@ -146,6 +158,7 @@ namespace BenchmarkDotNetBigQuery
                 {"Min", report.ResultStatistics.Min},
                 {"Max", report.ResultStatistics.Max},
                 {"Median", report.ResultStatistics.Median},
+                {"Mean", report.ResultStatistics.Mean },
                 {"StandardDeviation", report.ResultStatistics.StandardDeviation},
                 {"StandardError", report.ResultStatistics.StandardError},
                 {"Variance", report.ResultStatistics.Variance},
@@ -179,7 +192,7 @@ namespace BenchmarkDotNetBigQuery
         }
 
         private void ValidateSchema(
-            IList<TableFieldSchema> testSchema, IList<TableFieldSchema> actualSchema, string schemaId)
+            ICollection<TableFieldSchema> testSchema, ICollection<TableFieldSchema> actualSchema, string schemaId)
         {
             int actualCount = actualSchema?.Count ?? 0;
             int testCount = testSchema?.Count ?? 0;
