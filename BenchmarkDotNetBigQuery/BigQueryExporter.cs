@@ -40,6 +40,7 @@ namespace BenchmarkDotNetBigQuery
 
         private readonly TableSchema _reportTableSchema = new TableSchemaBuilder
         {
+            {"Id", BigQueryDbType.String },
             {"SummaryId", BigQueryDbType.String},
             {"Namespace", BigQueryDbType.String},
             {"Type", BigQueryDbType.String},
@@ -133,6 +134,7 @@ namespace BenchmarkDotNetBigQuery
             var fullMethodName = $"{report.Benchmark.Target.Type.FullName}.{report.Benchmark.Target.Method.Name}";
             return new BigQueryInsertRow
             {
+                {"Id", new Guid().ToString() },
                 {"SummaryId", summaryId},
                 {"Namespace", report.Benchmark.Target.Type.Namespace},
                 {"Type", report.Benchmark.Target.Type.Name},

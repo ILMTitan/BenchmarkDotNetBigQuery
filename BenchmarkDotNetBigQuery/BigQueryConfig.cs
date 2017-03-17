@@ -40,20 +40,57 @@ namespace BenchmarkDotNetBigQuery
             });
         }
 
+        /**
+         * Returns a BigQueryExporter instantiated with the values from the constructor.
+         */
         public IEnumerable<IExporter> GetExporters()
         {
             yield return _bigQueryExporter.Value;
         }
 
+        /**
+         * Union with other configs.
+         */
         public ConfigUnionRule UnionRule => ConfigUnionRule.Union;
+
+        /**
+         * Don't keep benchmark files unless another configs says we should.
+         */
         public bool KeepBenchmarkFiles => false;
+
+        /**
+         * Null.
+         */
         public IOrderProvider GetOrderProvider() => null;
 
+        /**
+         * Empty.
+         */
         public IEnumerable<IColumnProvider> GetColumnProviders() => Enumerable.Empty<IColumnProvider>();
+
+        /**
+         * Empty.
+         */
         public IEnumerable<ILogger> GetLoggers() => Enumerable.Empty<ILogger>();
+
+        /**
+         * Empty.
+         */
         public IEnumerable<IDiagnoser> GetDiagnosers() => Enumerable.Empty<IDiagnoser>();
+
+        /**
+         * Empty.
+         */
         public IEnumerable<IAnalyser> GetAnalysers() => Enumerable.Empty<IAnalyser>();
+
+        /**
+         * Empty.
+         */
         public IEnumerable<Job> GetJobs() => Enumerable.Empty<Job>();
+
+        /**
+         * Empty.
+         */
         public IEnumerable<IValidator> GetValidators() => Enumerable.Empty<IValidator>();
     }
 }
