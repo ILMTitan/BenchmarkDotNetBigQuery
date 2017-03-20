@@ -17,10 +17,11 @@ namespace BenchmarkDotNetBigQuery
     public class BigQueryExporter: IExporter
     {
         private string CommitId { get; }
+        private bool OneSummary { get; }
         private BigQueryTable SummaryTable { get; }
         private BigQueryTable ReportTable { get; }
 
-        private readonly TableSchema _summaryTableSchema = new TableSchemaBuilder
+        private TableSchema SummaryTableSchema { get; } = new TableSchemaBuilder
         {
             {"Id", BigQueryDbType.String},
             {"Commit", BigQueryDbType.String},
@@ -38,7 +39,7 @@ namespace BenchmarkDotNetBigQuery
             {"HardwareTimerKind", BigQueryDbType.String}
         }.Build();
 
-        private readonly TableSchema _reportTableSchema = new TableSchemaBuilder
+        private TableSchema ReportTableSchema { get; } = new TableSchemaBuilder
         {
             {"Id", BigQueryDbType.String },
             {"SummaryId", BigQueryDbType.String},
@@ -62,6 +63,8 @@ namespace BenchmarkDotNetBigQuery
             {"Percentile100", BigQueryDbType.Float64}
         }.Build();
 
+        private string _summaryId;
+
         /// <summary>
         /// During construction, the BigQueryExporter will create the dataset and tables if needed.
         /// If the dataset and tables already exist, it will validate that the tables contain the necessary fields.
@@ -71,6 +74,11 @@ namespace BenchmarkDotNetBigQuery
         /// <param name="datasetId">
         ///   The id of the Google BigQuery dataset that contains the target tables.
         /// </param>
+        /// <param name="oneSummary">
+        ///   BenchmarkDotNet provides a separate summary for every class. If this parameter is false, the exporter
+        ///   creates a new summary row for every summary. If true, creates a single summary row for the entire
+        ///   lifetime of the exporter. Defaults to true.
+        /// </param>
         /// <param name="summaryTableId">The id of table to put summary information in.</param>
         /// <param name="reportTableId">The id of table to put report information in.</param>
         /// <param name="googleCredential">Defaults to application default credentials if unspecified.</param>
@@ -78,11 +86,13 @@ namespace BenchmarkDotNetBigQuery
             string commitId,
             string googleProjectId,
             string datasetId,
+            bool oneSummary = true,
             string summaryTableId = "BenchmarkSummary",
             string reportTableId = "BenchmarkReport",
             GoogleCredential googleCredential = null)
         {
             CommitId = commitId;
+            OneSummary = oneSummary;
             Task<BigQueryClient> bqClientTask = BigQueryClient.CreateAsync(googleProjectId, googleCredential);
             Tuple<BigQueryTable, BigQueryTable> tables =
                 GetValidTablesFromDataset(datasetId, summaryTableId, reportTableId, bqClientTask).Result;
@@ -106,13 +116,21 @@ namespace BenchmarkDotNetBigQuery
         /// <returns>A string containing the summary guid and the names of the tables they are stoed in.</returns>
         public IEnumerable<string> ExportToFiles(Summary summary, ILogger logger)
         {
-            string summaryId = Guid.NewGuid().ToString();
-            var summaryRow = BuildSummaryRow(summary, summaryId);
-            Task insertSummaryTask = SummaryTable.InsertAsync(summaryRow);
-            IEnumerable<BigQueryInsertRow> reportRows = summary.Reports.Select(BuildReportRowCurried(summaryId));
+            Task insertSummaryTask = null;
+            if (!OneSummary || _summaryId == null)
+            {
+                _summaryId = Guid.NewGuid().ToString();
+                var summaryRow = BuildSummaryRow(summary, _summaryId);
+                insertSummaryTask = SummaryTable.InsertAsync(summaryRow);
+            }
+            IEnumerable<BigQueryInsertRow> reportRows = summary.Reports.Select(BuildReportRowCurried(_summaryId));
             Task insertReportTask = ReportTable.InsertAsync(reportRows);
-            Task.WaitAll(insertSummaryTask, insertReportTask);
-            yield return $"{summaryId} in {SummaryTable.FullyQualifiedId} and {ReportTable.FullyQualifiedId}";
+            insertReportTask.Wait();
+            if (insertSummaryTask != null)
+            {
+                insertSummaryTask.Wait();
+                yield return $"{_summaryId} in {SummaryTable.FullyQualifiedId} and {ReportTable.FullyQualifiedId}";
+            }
         }
 
         private BigQueryInsertRow BuildSummaryRow(Summary summary, string summaryId)
@@ -175,11 +193,11 @@ namespace BenchmarkDotNetBigQuery
             BigQueryClient bigQueryClient = await bigQueryClientTask;
             BigQueryDataset dataset = await bigQueryClient.GetOrCreateDatasetAsync(datasetId);
 
-            Task<BigQueryTable> summaryTableTask = dataset.GetOrCreateTableAsync(summaryTableId, _summaryTableSchema);
-            Task<BigQueryTable> reportTableTask = dataset.GetOrCreateTableAsync(reportTableId, _reportTableSchema);
+            Task<BigQueryTable> summaryTableTask = dataset.GetOrCreateTableAsync(summaryTableId, SummaryTableSchema);
+            Task<BigQueryTable> reportTableTask = dataset.GetOrCreateTableAsync(reportTableId, ReportTableSchema);
 
-            Task validateSummaryTableTask = ValidateTableSchemaAsync(_summaryTableSchema, summaryTableTask);
-            Task validateReportTableTask = ValidateTableSchemaAsync(_reportTableSchema, reportTableTask);
+            Task validateSummaryTableTask = ValidateTableSchemaAsync(SummaryTableSchema, summaryTableTask);
+            Task validateReportTableTask = ValidateTableSchemaAsync(ReportTableSchema, reportTableTask);
 
             await Task.WhenAll(validateSummaryTableTask, validateReportTableTask);
             return Tuple.Create(await summaryTableTask, await reportTableTask);

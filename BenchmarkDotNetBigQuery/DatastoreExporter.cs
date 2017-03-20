@@ -14,6 +14,8 @@ namespace BenchmarkDotNetBigQuery
     /// </summary>
     public class DatastoreExporter : IExporter
     {
+        private Key _summaryKey;
+        private bool OneSummary { get; }
         private string CommitId { get; }
         private string SummaryEntityKind { get; }
         private string ReportEntityKind { get; }
@@ -25,6 +27,11 @@ namespace BenchmarkDotNetBigQuery
         /// </summary>
         /// <param name="commitId">Id of the commit e.g. git hash.</param>
         /// <param name="googleProjectId">The id of the google project to upload to.</param>
+        /// <param name="oneSummary">
+        ///   BenchmarkDotNet provides a separate summary for every class. If this parameter is
+        ///   false, the exporter creates all summary entities. If true, creates a single summary entity for the entire
+        ///   lifetime of the exporter.
+        /// </param>
         /// <param name="gcdNamespace">
         ///   The name of the Google Cloud Datastore Namespace to place the entities in.
         /// </param>
@@ -36,11 +43,13 @@ namespace BenchmarkDotNetBigQuery
         public DatastoreExporter(
             string commitId,
             string googleProjectId,
+            bool oneSummary = true,
             string gcdNamespace = "",
             string summaryEntityKind = "BenchmarkSummary",
             string reportEntityKind = "BenchmarkReport")
         {
             CommitId = commitId;
+            OneSummary = oneSummary;
             SummaryEntityKind = summaryEntityKind;
             ReportEntityKind = reportEntityKind;
             DatastoreDb = DatastoreDb.Create(googleProjectId, gcdNamespace);
@@ -64,15 +73,18 @@ namespace BenchmarkDotNetBigQuery
         public IEnumerable<string> ExportToFiles(Summary summary, ILogger consoleLogger)
         {
             KeyFactory summaryKeyFactory = DatastoreDb.CreateKeyFactory(SummaryEntityKind);
-            Entity summaryEntity = BuildSummaryEntity(summary, summaryKeyFactory);
-            Key summaryKey = DatastoreDb.Insert(summaryEntity);
-            KeyFactory reportKeyFactory = new KeyFactory(summaryKey, ReportEntityKind);
+            if (!OneSummary || _summaryKey == null)
+            {
+                Entity summaryEntity = BuildSummaryEntity(summary, summaryKeyFactory);
+                _summaryKey = DatastoreDb.Insert(summaryEntity);
+                yield return $"Datastore summary entity key: {_summaryKey}";
+            }
+            KeyFactory reportKeyFactory = new KeyFactory(_summaryKey, ReportEntityKind);
             var reportBatches = summary.Reports.Select(BuildReportEntityCurry(reportKeyFactory)).Batch(500);
             foreach (IEnumerable<Entity> reportBatch in reportBatches)
             {
                 DatastoreDb.Insert(reportBatch);
             }
-            yield return $"Datastore summary entity key: {summaryKey}";
         }
 
         private Func<BenchmarkReport, Entity> BuildReportEntityCurry(KeyFactory reportKeyFactory)
